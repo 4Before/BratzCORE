@@ -1,0 +1,29 @@
+"""
+
+STOCK: ARMAZENAMENTO. LOCAL ONDE FICAM OS ITENS. 
+UM STOCK POSSUI ITENS DENTRO DELE. ESSES ITENS SÃO O STORAGE. OU SEJA
+
+- STOCK 1:
+- - STORAGE {
+- - - Tomate
+- - - Alface
+- - }
+- - ADITIONAL_INFO {
+- - - Só coisas de verdureira
+- - }
+
+ITEM: ITEM DENTRO DO STORAGE. 
+- NOME
+- MARCA
+- - NÃO TEM MARCA
+- PREÇO
+- - PREÇO POR KG?
+- PERECÍVEL? SIM / NÃO
+- VALIDADE (OPCIONAL)
+- CRIAR CÓDIGO DE BARRAS
+
+MODELO DE DISPLAY
+Nome Marca (preço)
+Molho de Tomate Elefante (19,99)
+
+"""

@@ -1,0 +1,27 @@
+# Ambiente virtual
+.venv/
+venv/
+
+# Arquivos temporários
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Arquivos de banco de dados locais
+instance/
+*.sqlite3
+*.db
+
+# Migrations (se quiser gerar do zero em prod)
+migrations/
+
+# Arquivos específicos
+.env
+.DS_Store
+*.bak
