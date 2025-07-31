@@ -241,16 +241,6 @@ def _validate_profile_for_supervisor(profile: dict | None) -> tuple[dict, list[s
     }
     return normalized, []
 
-def _normalize_account_type(value: str) -> str:
-    """
-    Normalize and map account_type aliases.
-    """
-    if not value:
-        return ""
-    v = value.strip().upper()
-    return v
-
-
 def _validate_and_build_privileges(payload_privs: dict | None) -> tuple[dict, list[str]]:
     """
     Validate privilege dictionary for CUSTOM accounts.
@@ -281,6 +271,36 @@ def _validate_and_build_privileges(payload_privs: dict | None) -> tuple[dict, li
 
     return result, errors
 
+"""
+================================
+==== GET - /BRATZ/ACCOUNTS/ ====
+================================
+"""
+
+@accounts_bp.route("/accounts", methods=["GET"])
+@auth_utils.token_required
+@auth_utils.admin_required
+def list_accounts():
+    """
+    Lista todas as contas registradas.
+    """
+    users = User.query.all()
+    accounts = []
+    for user in users:
+        accounts.append({
+            "id": user.id,
+            "email": user.email,
+            "account_type": user.account_type,
+            "privileges": user.privileges,
+            "profile": user.profile
+        })
+    return success_response("Accounts retrieved successfully", accounts)
+
+"""
+================================
+==== POST - /BRATZ/ACCOUNTS ====
+================================
+"""
 
 @accounts_bp.route("/accounts", methods=["POST"])
 @auth_utils.token_required
@@ -364,3 +384,134 @@ def create_account():
         "profile": new_user.profile
     }, 201)
 
+
+"""
+================================
+=== GET - /BRATZ/ACCOUNTS/ID ===
+================================
+"""
+
+@accounts_bp.route("/accounts/<int:user_id>", methods=["GET"])
+@auth_utils.token_required
+@auth_utils.admin_required
+def get_account(user_id):
+    """
+    Retorna uma conta específica por ID.
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return error_response("Account not found", 404)
+
+    return success_response("Account retrieved successfully", {
+        "id": user.id,
+        "email": user.email,
+        "account_type": user.account_type,
+        "privileges": user.privileges,
+        "profile": user.profile
+    })
+
+"""
+================================
+PATCH - /BRATZ/ACCOUNTS/ID/PROFILE 
+================================
+"""
+
+@accounts_bp.route("/accounts/<int:user_id>/profile", methods=["PATCH"])
+@auth_utils.token_required
+@auth_utils.admin_required
+def update_account_profile(user_id):
+    """
+    Atualiza o perfil de uma conta.
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return error_response("Account not found", 404)
+
+    if user.account_type not in (ACCOUNT_CAIXA, ACCOUNT_STORAGE, ACCOUNT_SUPERVISOR):
+        return error_response("Only accounts with profile can be updated", 400)
+
+    profile_data = request.get_json(silent=True) or {}
+
+    if user.account_type == ACCOUNT_CAIXA:
+        profile, errors = _validate_profile_for_caixa(profile_data)
+    elif user.account_type == ACCOUNT_STORAGE:
+        profile, errors = _validate_profile_for_storage(profile_data)
+    elif user.account_type == ACCOUNT_SUPERVISOR:
+        profile, errors = _validate_profile_for_supervisor(profile_data)
+    else:
+        profile, errors = {}, ["Unsupported account type"]
+
+    if errors:
+        return error_response("; ".join(errors), 400)
+
+    user.profile = profile
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return error_response("Failed to update profile", 500)
+
+    return success_response("Profile updated successfully", {"profile": user.profile})
+
+"""
+================================
+PATCH - /BRATZ/ACCOUNTS/ID/PREVILEGES
+================================
+"""
+
+@accounts_bp.route("/accounts/<int:user_id>/privileges", methods=["PATCH"])
+@auth_utils.token_required
+@auth_utils.admin_required
+def update_account_privileges(user_id):
+    """
+    Atualiza os privilégios de uma conta CUSTOM.
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return error_response("Account not found", 404)
+
+    if user.account_type != ACCOUNT_CUSTOM:
+        return error_response("Only CUSTOM accounts can have privileges modified", 400)
+
+    priv_data = request.get_json(silent=True)
+    privileges, errors = _validate_and_build_privileges(priv_data)
+
+    if errors:
+        return error_response("; ".join(errors), 400)
+
+    user.privileges = privileges
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return error_response("Failed to update privileges", 500)
+
+    return success_response("Privileges updated successfully", {"privileges": user.privileges})
+
+"""
+================================
+= DELETE - /BRATZ/ACCOUNTS/ID/ =
+================================
+"""
+
+@accounts_bp.route("/accounts/<int:user_id>", methods=["DELETE"])
+@auth_utils.token_required
+@auth_utils.admin_required
+def delete_account(user_id):
+    """
+    Deleta uma conta pelo ID.
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return error_response("Account not found", 404)
+
+    try:
+        db.session.delete(user)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return error_response("Failed to delete account", 500)
+
+    return success_response("Account deleted successfully")
