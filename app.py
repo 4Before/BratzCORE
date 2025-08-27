@@ -1,4 +1,4 @@
-from routes.extensions import db, migrate 
+from utils.extensions import db, migrate 
 from flask import Flask
 from config import Config
 

@@ -1,4 +1,4 @@
-from routes.extensions import db
+from utils.extensions import db
 from sqlalchemy.types import JSON
 
 class Product(db.Model):

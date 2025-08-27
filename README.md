@@ -14,10 +14,24 @@ BratzApi/
 ├── app.py                # Arquivo principal do app Flask
 ├── config.py             # Configurações do Flask e banco de dados
 ├── models/
+│   └── __init__.py       # Inicializador
 │   └── user_model.py     # Modelo de usuário
+│   └── product_model.py  # Modelo de produto
 ├── routes/
-│   └── auth_routes.py    # Rotas de autenticação (login, registro, etc)
-├── test_db.py            # Script de teste de conexão
+│   └── __init__.py       # Inicializador
+│   └── accounts.py       # Rota de contas
+│   └── auth.py           # Rota de autenticação
+│   └── clients.py        # Rota de clientes
+│   └── finance.py        # Rota de finança
+│   └── products.py       # Rota de produtos
+│   └── stocks.py         # Rota de estoques
+├── routes/
+│   └── __init__.py       # Inicializador
+│   └── auth.py           # Utilitário de autenticação (para token e autoridade)
+│   └── extensions.py     # Extnsões de banco de dados
+│   └── jwt_manager.py    # Suporte ao JWT de segurança
+│   └── responses.py      # Utilitário de respostas (para padronização)
+├── seeder.py             # Script de teste de conexão
 ├── requirements.txt      # Dependências do projeto
 ├── migrations/           # Diretório de migrações do banco de dados
 └── README.md             # Este arquivo
@@ -44,7 +58,7 @@ source .venv/bin/activate  # Linux/macOS
 pip install -r requirements.txt
 ```
 
-Caso enfrente erroa, instale o `psycopg[binary]` desta forma:
+Caso enfrente problemas, instale o `psycopg[binary]` desta forma:
 ```bash
 pip install "psycopg[binary]"
 ```
@@ -54,35 +68,18 @@ Estamos usando uma configuração local de banco de dados. Por isso, ao instalar
 ```python
 SQLALCHEMY_DATABASE_URI = "postgresql+psycopg://usuario:senha@localhost:5432/seubanco"
 ```
-
-## 💼 Migrações
-Caso haja alguma mudança da forma que o banco é construído, execute o flask-migrate assim:
-
-```bash
-flask db init       # apenas na primeira vez
-flask db migrate -m "mensagem"
-flask db upgrade
-
+Então, rode o script de iniciação de banco de dados:
+```python
+python seeder.py
 ```
+
 
 ## 🎮 Executando o projeto
-1. Caso seja sua primeira vez executando, você precisa semear o administrador. Então rode o script `seed_owner.py`
-```bash
-python seed_owner.py
-```
-
-2. Após isso, apenas faça o Flask rodar desta forma:
+Apenas inicie o projeto inicial 
 
 ```bash
-flask run
+python app.py
 ```
-
-## 👀 Acesso aos dados visualmente
-1. Abra o PgAdmin
-2. Acesse o banco que você configurou em `config.py`
-3. Abra a tabela user
-4. Com o botão direito, clique nesta tabela (ou no schema que você estiver procurando)
-5. Vá em "View/Edit Data > All Rows" 
 
 ## 🗺️ Mapa de requisições
 ### Contas

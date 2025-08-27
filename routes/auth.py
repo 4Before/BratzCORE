@@ -2,7 +2,7 @@ from flask import Blueprint, request
 from models.user import User
 from utils.responses import success_response, error_response
 from utils.jwt_manager import generate_token
-from routes.extensions import db 
+from utils.extensions import db 
 
 auth_bp = Blueprint("auth", __name__)
 
