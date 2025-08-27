@@ -1,10 +1,6 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from config import Config
-
-db = SQLAlchemy()
-migrate = Migrate()
+from routes.extensions import db, migrate 
 
 def create_app():
     app = Flask(__name__)
@@ -13,9 +9,11 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
 
+    # Import blueprints inside the function
     from routes.auth import auth_bp
-    app.register_blueprint(auth_bp, url_prefix="/bratz/auth")
     from routes.accounts import accounts_bp
+
+    app.register_blueprint(auth_bp, url_prefix="/bratz/auth")
     app.register_blueprint(accounts_bp, url_prefix="/bratz")
 
     return app

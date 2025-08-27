@@ -271,11 +271,11 @@ def _validate_and_build_privileges(payload_privs: dict | None) -> tuple[dict, li
 
     return result, errors
 
-"""
-================================
-==== GET - /BRATZ/ACCOUNTS/ ====
-================================
-"""
+
+# ================================
+# ==== GET - /BRATZ/ACCOUNTS/ ====
+# ================================
+
 
 @accounts_bp.route("/accounts", methods=["GET"])
 @auth_utils.token_required
