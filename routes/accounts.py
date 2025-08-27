@@ -14,7 +14,14 @@ ACCOUNT_SUPERVISOR = "SUPERVISOR"
 ACCOUNT_CUSTOM = "CUSTOM"
 # to do: support modifying an existing account type and be able to give it an name. Custom should be able to give an name too
 
-SUPPORTED_ACCOUNT_TYPES = {ACCOUNT_OWNER, ACCOUNT_FULL, ACCOUNT_CAIXA, ACCOUNT_STORAGE, ACCOUNT_SUPERVISOR, ACCOUNT_CUSTOM}
+SUPPORTED_ACCOUNT_TYPES = {
+    ACCOUNT_OWNER, 
+    ACCOUNT_FULL, 
+    ACCOUNT_CAIXA,
+    ACCOUNT_STORAGE, 
+    ACCOUNT_SUPERVISOR, 
+    ACCOUNT_CUSTOM
+}
 
 # --- Allowed privilege keys ---
 ALLOWED_PRIVILEGE_KEYS = {
@@ -54,6 +61,7 @@ DEFAULT_PRIVILEGES = {
         "BINDING": False,
         "PANEL_MODIFIER": False,
     },
+    
     ACCOUNT_CAIXA: {
         "ADMIN": False,
         "STAT_VIEWER": False,
@@ -70,6 +78,7 @@ DEFAULT_PRIVILEGES = {
         "BINDING": True,
         "PANEL_MODIFIER": False,
     },
+    
     ACCOUNT_STORAGE: {
         "ADMIN": False,
         "STAT_VIEWER": False,
@@ -86,6 +95,7 @@ DEFAULT_PRIVILEGES = {
         "BINDING": True,
         "PANEL_MODIFIER": False,
     },
+    
     ACCOUNT_SUPERVISOR: {
         "ADMIN": False,
         "STAT_VIEWER": False,
@@ -256,7 +266,6 @@ def _validate_and_build_privileges(payload_privs: dict | None) -> tuple[dict, li
     if not isinstance(payload_privs, dict):
         return {}, ["Field 'privileges' must be an object (key: bool)"]
 
-    # start with all False
     result = {k: False for k in ALLOWED_PRIVILEGE_KEYS}
 
     for key, value in payload_privs.items():
@@ -296,11 +305,6 @@ def list_accounts():
         })
     return success_response("Accounts retrieved successfully", accounts)
 
-"""
-================================
-==== POST - /BRATZ/ACCOUNTS ====
-================================
-"""
 
 @accounts_bp.route("/accounts", methods=["POST"])
 @auth_utils.token_required

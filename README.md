@@ -166,6 +166,9 @@ Usando o token que você conseguiu como Bearer Token, você manda esse corpo
   "account_type": "FULL_MANAGEMENT"
 }
 ```
+
+
+
 retorno
 ```
 {
