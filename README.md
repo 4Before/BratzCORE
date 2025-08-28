@@ -84,18 +84,18 @@ python app.py
 ## 🗺️ Mapa de requisições
 ### Contas
 `/bratz/auth/login` POST - Login <br>
-`/bratz/accounts` GET - Vê as contas (a fazer) <br>
-`/bratz/accounts/{id}` GET - Vê uma conta específica (a fazer) <br>
-`/bratz/accounts/{id}/profile` PATCH - Muda informações de um perfil (a fazer) <br>
-`/bratz/accounts/{id}/privileges` PATCH - Muda previlégios de um perfil (a fazer) <br>
-`/bratz/accounts` POST - Criação de contas <br>
-`/bratz/accounts/{id}` DELETE - Deleta uma conta (a fazer) <br>
+`/bratz/accounts` GET - Vê as contas<br>
+`/bratz/accounts/{id}` GET - Vê uma conta específica<br>
+`/bratz/accounts/{id}/profile` PATCH - Muda informações de um perfil<br>
+`/bratz/accounts/{id}/privileges` PATCH - Muda previlégios de um perfil<br>
+`/bratz/accounts` POST - Criação de contas<br>
+`/bratz/accounts/{id}` DELETE - Deleta uma conta<br>
 
 ### Clientes
-`/bratz/clients` GET - Vê todos os clientes (a fazer) <br>
-`/bratz/clients/{id}` GET - Vê um cliente específico (a fazer) <br>
-`/bratz/clients/{id}` PATCH - Muda dados de um cliente específico (a fazer) <br>
-`/bratz/clients` POST - Adiciona um cliente (a fazer) <br>
+`/bratz/clients` GET - Vê todos os clientes<br>
+`/bratz/clients/{id}` GET - Vê um cliente específico<br>
+`/bratz/clients/{id}` PATCH - Muda dados de um cliente específico<br>
+`/bratz/clients` POST - Adiciona um cliente<br>
 
 ### Caixas
 `/bratz/cash-registers` GET - Vê todos os caixas (a fazer) <br>
@@ -108,11 +108,11 @@ python app.py
 `/bratz/stock` POST - Cria um estoque (a fazer) <br>
 `/bratz/stock/{id}` PATCH - Modifica um estoque específico (a fazer) <br>
 
-### Itens
-`/bratz/items` GET - Vê a lista de itens (a fazer) <br>
-`/bratz/item/{id}` GET - Vê um item específico (a fazer) <br>
-`/bratz/item/{id}` PATCH - Modifica o item (a fazer) <br>
-`/bratz/item` POST - Cria um item (a fazer) <br>
+### Produtos
+`/bratz/products` GET - Vê a lista de itens<br>
+`/bratz/products/{id}` GET - Vê um item específico<br>
+`/bratz/products/{id}` PATCH - Modifica o item<br>
+`/bratz/products` POST - Cria um item <br>
 
 ### Armazenamento
 `/bratz/stock/{id}/storage/{item}` GET - Vê quantidade de tal item dentro do armazenamento do estoque (a fazer) <br>
@@ -124,37 +124,10 @@ python app.py
 `/bratz/stats/overview` GET - Vê estatísticas
 `/bratz/finance` GET - Vê dados financeiros. 
 
-# ------------------ BAGUNÇA ----------------------
-
-## CREATE ACCOUNT 
-
-em `http://127.0.0.1:5000/bratz/auth/register`
-```
-{
-  "email": "owner@market.com",
-  "password": "StrongPass123!",
-  "confirm_password": "StrongPass123!",
-  "account_type": "OWNER"
-}
-```
-
-## CREATE ADMIN ACCOUNT ROOT
-```
-python seed_owner.py
-```
-
-## LOGIN
-
-em `http://127.0.0.1:5000/bratz/auth/login`
-```
-{
-  "email": "owner@market.com",
-  "password": "StrongPass123!"
-}
-```
+---
 
 ## CRIANDO UMA CONTA
-Usando o token que você conseguiu como Bearer Token, você manda esse corpo
+Usando o token que você conseguiu como Bearer Token, você manda esse corpo (`http://127.0.0.1:5000/bratz/accounts`)
 ```
 {
   "email": "new.subowner@market.com",
@@ -163,8 +136,6 @@ Usando o token que você conseguiu como Bearer Token, você manda esse corpo
   "account_type": "FULL_MANAGEMENT"
 }
 ```
-
-
 
 retorno
 ```
