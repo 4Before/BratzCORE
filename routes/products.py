@@ -1,8 +1,8 @@
+from datetime import datetime
 from typing import Optional
 from flask import Blueprint, request
 from pydantic import BaseModel, Field, ValidationError, field_validator
 import utils.auth as auth_utils
-from datetime import datetime
 from models.product import Product, db
 from utils.responses import success_response, error_response
 
@@ -24,7 +24,7 @@ class ProductCreatePayload(BaseModel):
     def strip_item(cls, v: str):
         """Remove espaços em branco do campo 'item'."""
         return v.strip()
-        
+   
     @field_validator('brand')
     @classmethod
     def strip_brand(cls, v: Optional[str]):
