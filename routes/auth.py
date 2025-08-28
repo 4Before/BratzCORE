@@ -6,8 +6,8 @@ from utils.extensions import db
 
 auth_bp = Blueprint("auth", __name__)
 
-@auth_bp.route("/register", methods=["POST"])
-def register():
+@auth_bp.route("/auth", methods=["POST"])
+def auth():
     """
     Register a basic user with email and password
     """
@@ -41,7 +41,7 @@ def register():
     }, 201)
 
 
-@auth_bp.route("/login", methods=["POST"])
+@auth_bp.route("/auth/login", methods=["POST"])
 def login():
     """
     Login with email and password
