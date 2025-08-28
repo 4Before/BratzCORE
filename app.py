@@ -1,6 +1,8 @@
-from utils.extensions import db, migrate 
 from flask import Flask
 from config import Config
+from utils.extensions import db, migrate 
+from routes.auth import auth_bp
+from routes.accounts import accounts_bp
 
 
 def create_app():
@@ -10,8 +12,6 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
 
-    from routes.auth import auth_bp
-    from routes.accounts import accounts_bp
 
     app.register_blueprint(auth_bp, url_prefix="/bratz/auth")
     app.register_blueprint(accounts_bp, url_prefix="/bratz")

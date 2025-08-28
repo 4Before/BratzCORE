@@ -1,8 +1,8 @@
-import utils.auth as auth_utils
-from datetime import datetime
+from typing import Optional
 from flask import Blueprint, request
 from pydantic import BaseModel, Field, ValidationError, field_validator
-from typing import Optional
+import utils.auth as auth_utils
+from datetime import datetime
 from models.product import Product, db
 from utils.responses import success_response, error_response
 
@@ -17,7 +17,7 @@ class ProductCreatePayload(BaseModel):
     brand: Optional[str] = None
     purchase_value: Optional[float] = None
     sale_value: float = Field(gt=0)
-    expiration_date: Optional[str] = None 
+    expiration_date: Optional[str] = None
 
     @field_validator('item')
     @classmethod
@@ -33,7 +33,7 @@ class ProductCreatePayload(BaseModel):
             return v.strip()
         return v
 
-    @field_validator('expiration_date', pre=True)
+    @field_validator('expiration_date')
     @classmethod
     def parse_expiration_date(cls, v: Optional[str]):
         """Converte a string de data (DD-MM-AAAA) para objeto date."""
