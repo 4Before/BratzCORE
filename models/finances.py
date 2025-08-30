@@ -13,6 +13,19 @@ class Sell(db.Model):
     change = db.Column(db.Float)
     items = db.relationship('ItemSold', backref='sell', lazy=True, cascade="all, delete-orphan")
 
+    def to_dict(self):
+        return {
+            'sell_id': self.id,
+            'cashier_id': self.id_caixa,
+            'operator': self.operator,
+            'sell_time': self.sell_time.isoformat() + 'Z', # Padrão ISO 8601, bom para frontends
+            'total_value': self.total_value,
+            'payment_method': self.payment_method,
+            'received_value': self.received_value,
+            'change': self.change,
+            'items': [item.to_dict() for item in self.items] # Inclui os detalhes dos itens vendidos
+        }
+
 class ItemSold(db.Model):
     __tablename__ = 'sold_items'
     id = db.Column(db.Integer, primary_key=True)
@@ -22,3 +35,12 @@ class ItemSold(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     unit_value = db.Column(db.Float, nullable=False)
     total_value = db.Column(db.Float, nullable=False)
+
+    def to_dict(self):
+        return {
+            'product_id': self.product_id,
+            'product_name': self.product_name,
+            'quantity': self.quantity,
+            'unit_value': self.unit_value,
+            'total_value': self.total_value
+        }

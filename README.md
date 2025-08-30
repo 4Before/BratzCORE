@@ -97,11 +97,6 @@ python app.py
 `/bratz/clients/{id}` PATCH - Muda dados de um cliente específico<br>
 `/bratz/clients` POST - Adiciona um cliente<br>
 
-### Caixas
-`/bratz/cash-registers` GET - Vê todos os caixas (a fazer) <br>
-`/bratz/cash-registers/{id}` GET - Vê um caixa específico (e sua movimentação) (a fazer) <br>
-`/bratz/cash-registers` POST - Adiciona um caixa (a fazer) <br>
-
 ### Estoques
 `/bratz/stock` GET - Vê todos os estoques (a fazer) <br>
 `/bratz/stock/{id}` GET - Vê um estoque esoecífico (e sua movimentação) (a fazer) <br>
