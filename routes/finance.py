@@ -7,6 +7,7 @@ from utils.responses import success_response, error_response
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field, ValidationError
 from typing import List, Optional
+from sqlalchemy import func
 
 finances_bp = Blueprint('finances', __name__)
 
@@ -174,3 +175,122 @@ def get_specific_sells(cashier_id):
 
     except Exception as e:
         return error_response(f'Ocorreu um erro interno: {str(e)}', 500)
+    
+# ===================================================
+# ==== GET - /BRATZ/FINANCES/SUMMARY/DAY ====
+# ===================================================
+@finances_bp.route('/finances/summary/day', methods=['GET'])
+@auth_utils.token_required
+@auth_utils.privilege_required("FINANCE")
+def get_daily_summary():
+    """
+    Retorna um resumo financeiro para uma data específica.
+    Requer privilégio 'FINANCE'.
+    Parâmetro: ?date=DD-MM-YYYY (opcional, padrão é hoje)
+    """
+    date_str = request.args.get('date')
+    try:
+        if date_str:
+            target_date = datetime.strptime(date_str, '%d-%m-%Y').date()
+        else:
+            target_date = datetime.utcnow().date()
+    except ValueError:
+        return error_response("Formato de data inválido. Use DD-MM-YYYY.", 400)
+
+    try:
+        start_of_day = datetime.combine(target_date, datetime.min.time())
+        end_of_day = datetime.combine(target_date, datetime.max.time())
+
+        # Query para as vendas do dia
+        sells_of_the_day = Sell.query.filter(Sell.sell_time.between(start_of_day, end_of_day)).all()
+
+        if not sells_of_the_day:
+            return success_response(f"Nenhuma venda encontrada para a data {target_date.strftime('%d-%m-%Y')}", {
+                "summary": {"date": target_date.strftime('%d-%m-%Y'), "total_faturado": 0, "numero_de_vendas": 0, "ticket_medio": 0, "total_produtos_vendidos": 0, "detalhes_por_pagamento": {}}
+            })
+
+        # Cálculos principais
+        total_faturado = sum(sell.total_value for sell in sells_of_the_day)
+        numero_de_vendas = len(sells_of_the_day)
+        ticket_medio = total_faturado / numero_de_vendas if numero_de_vendas > 0 else 0
+        
+        # Cálculo do total de produtos vendidos
+        total_produtos_vendidos = db.session.query(func.sum(ItemSold.quantity)).join(Sell).filter(Sell.sell_time.between(start_of_day, end_of_day)).scalar() or 0
+
+        # Detalhes por método de pagamento
+        detalhes_pagamento = {}
+        for sell in sells_of_the_day:
+            metodo = sell.payment_method
+            detalhes_pagamento[metodo] = detalhes_pagamento.get(metodo, 0) + sell.total_value
+
+        return success_response("Daily summary retrieved successfully", {
+            "summary": {
+                "date": target_date.strftime('%d-%m-%Y'),
+                "total_faturado": round(total_faturado, 2),
+                "numero_de_vendas": numero_de_vendas,
+                "ticket_medio": round(ticket_medio, 2),
+                "total_produtos_vendidos": int(total_produtos_vendidos),
+                "detalhes_por_pagamento": detalhes_pagamento
+            }
+        })
+
+    except Exception as e:
+        return error_response(f"Erro ao gerar resumo: {str(e)}", 500)
+
+# =====================================================
+# ==== GET - /BRATZ/FINANCES/SUMMARY/MONTH ====
+# =====================================================
+@finances_bp.route('/finances/summary/month', methods=['GET'])
+@auth_utils.token_required
+@auth_utils.privilege_required("FINANCE")
+def get_monthly_summary():
+    """
+    Retorna um resumo financeiro para um mês/ano específico.
+    Requer privilégio 'FINANCE'.
+    Parâmetros: ?month=MM&year=AAAA (opcionais, padrão é o mês/ano atual)
+    """
+    try:
+        current_time = datetime.utcnow()
+        month = request.args.get('month', current_time.month, type=int)
+        year = request.args.get('year', current_time.year, type=int)
+        
+        start_of_month = datetime(year, month, 1)
+        # Lógica para encontrar o fim do mês
+        next_month = start_of_month.replace(day=28) + timedelta(days=4)
+        end_of_month = next_month - timedelta(days=next_month.day)
+        end_of_month = end_of_month.replace(hour=23, minute=59, second=59)
+
+    except ValueError:
+        return error_response("Parâmetros de mês/ano inválidos.", 400)
+
+    try:
+        # A lógica é idêntica à do resumo diário, só muda o filtro de data
+        sells_of_the_month = Sell.query.filter(Sell.sell_time.between(start_of_month, end_of_month)).all()
+
+        if not sells_of_the_month:
+            return success_response(f"Nenhuma venda encontrada para {month:02d}-{year}", {
+                "summary": {"month": f"{month:02d}-{year}", "total_faturado": 0, "numero_de_vendas": 0, "ticket_medio": 0, "total_produtos_vendidos": 0, "detalhes_por_pagamento": {}}
+            })
+
+        total_faturado = sum(sell.total_value for sell in sells_of_the_month)
+        numero_de_vendas = len(sells_of_the_month)
+        ticket_medio = total_faturado / numero_de_vendas if numero_de_vendas > 0 else 0
+        total_produtos_vendidos = db.session.query(func.sum(ItemSold.quantity)).join(Sell).filter(Sell.sell_time.between(start_of_month, end_of_month)).scalar() or 0
+
+        detalhes_pagamento = {}
+        for sell in sells_of_the_month:
+            metodo = sell.payment_method
+            detalhes_pagamento[metodo] = detalhes_pagamento.get(metodo, 0) + sell.total_value
+
+        return success_response("Monthly summary retrieved successfully", {
+            "summary": {
+                "month": f"{month:02d}-{year}",
+                "total_faturado": round(total_faturado, 2),
+                "numero_de_vendas": numero_de_vendas,
+                "ticket_medio": round(ticket_medio, 2),
+                "total_produtos_vendidos": int(total_produtos_vendidos),
+                "detalhes_por_pagamento": detalhes_pagamento
+            }
+        })
+    except Exception as e:
+        return error_response(f"Erro ao gerar resumo mensal: {str(e)}", 500)
