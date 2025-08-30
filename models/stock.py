@@ -11,7 +11,7 @@ class Stock(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.String(255), nullable=True)
     
-    products = db.relationship('Product', secondary=stock_item, back_populates='stocks')
+    products = db.relationship('Product', secondary=stock_item, backref='stocks')
     
     def to_dict(self):
         return {

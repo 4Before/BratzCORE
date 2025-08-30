@@ -17,3 +17,14 @@ class Product(db.Model):
 
     def __repr__(self) -> str:
         return f"<Product {self.id} {self.item}>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "item": self.item,
+            "brand": self.brand,
+            "purchase_value": self.purchase_value,
+            "sale_value": self.sale_value,
+            "expiration_date": str(self.expiration_date) if self.expiration_date else None,
+            "desc": self.desc
+        }
