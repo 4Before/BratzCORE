@@ -1,67 +1,139 @@
-from flask import jsonify
+"""
+Módulo de Manipulação Centralizada de Erros
+-------------------------------------------
+Este arquivo define um sistema robusto para tratamento de exceções na API.
+Ele provê uma classe base `APIError` e diversas subclasses para erros semânticos
+comuns (ex: Recurso Não Encontrado, Acesso Proibido).
+
+A função `register_error_handlers` conecta essas exceções customizadas e as exceções
+padrão do Flask/Werkzeug ao aplicativo, garantindo que qualquer erro gerado pela
+aplicação resulte em uma resposta JSON padronizada e informativa.
+"""
+
+from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
+from typing import Dict, List, Optional
+
+# ==================================
+# ==== CLASSES DE EXCEÇÃO API ====
+# ==================================
 
 class APIError(Exception):
-    """Classe base para exceções customizadas da API."""
-    status_code = 500
-    message = "An unexpected error occurred."
+    """
+    Classe base para todas as exceções customizadas da API.
+    Permite a definição de uma mensagem padrão, um status code HTTP e um
+    dicionário opcional para detalhar erros de validação.
+    """
+    status_code: int = 500
+    message: str = "Ocorreu um erro inesperado no servidor."
     
-    def __init__(self, message=None, status_code=None, errors=None):
-        if message:
+    def __init__(
+        self, 
+        message: Optional[str] = None, 
+        status_code: Optional[int] = None, 
+        errors: Optional[Dict | List] = None
+    ):
+        super().__init__(message)
+        if message is not None:
             self.message = message
-        if status_code:
+        if status_code is not None:
             self.status_code = status_code
         self.errors = errors
-        super().__init__(self.message)
 
 class InvalidInputError(APIError):
-    """Erro de validação de entrada (código 400)."""
+    """
+    Exceção para erros de validação de entrada (400 Bad Request).
+    Deve ser levantada quando os dados enviados pelo cliente falham na validação
+    (ex: campos ausentes, formatos incorretos).
+    """
     status_code = 400
-    def __init__(self, message="Validation failed.", errors=None):
+    def __init__(self, message: str = "A validação dos dados falhou.", errors: Optional[Dict | List] = None):
         super().__init__(message, status_code=400, errors=errors)
 
 class ResourceNotFoundError(APIError):
-    """Erro para recursos não encontrados (código 404)."""
+    """
+    Exceção para recursos não encontrados (404 Not Found).
+    Deve ser levantada quando uma busca por um recurso específico (ex: um cliente por ID)
+    não retorna resultados. O `get_or_404()` do Flask-SQLAlchemy levanta uma
+    HTTPException, que é capturada por outro handler.
+    """
     status_code = 404
-    message = "Resource not found."
+    message = "O recurso solicitado não foi encontrado."
     
 class ConflictError(APIError):
-    """Erro para conflitos, como a tentativa de criar um recurso que já existe (código 409)."""
+    """
+    Exceção para conflitos de recursos (409 Conflict).
+    Deve ser levantada ao tentar criar um recurso que viola uma restrição
+    de unicidade (ex: cadastrar um e-mail ou CPF que já existe).
+    """
     status_code = 409
-    message = "Conflict with existing resource."
+    message = "Conflito com um recurso existente."
 
 class ForbiddenError(APIError):
-    """Erro para quando um usuário não tem as permissões necessárias (código 403)."""
+    """
+    Exceção para acesso não autorizado (403 Forbidden).
+    Deve ser levantada quando um usuário autenticado tenta realizar uma ação
+    para a qual ele não possui o privilégio necessário.
+    """
     status_code = 403
-    message = "Forbidden. You do not have permission to perform this action."
+    message = "Acesso proibido. Você não tem permissão para realizar esta ação."
 
 class UnauthorizedError(APIError):
-    """Erro para falhas de autenticação (código 401)."""
+    """
+    Exceção para falhas de autenticação (401 Unauthorized).
+    Deve ser levantada quando uma requisição exige autenticação, mas o token
+    é ausente, inválido ou expirado.
+    """
     status_code = 401
-    message = "Authentication required."
+    message = "Autenticação necessária."
 
 
-def register_error_handlers(app):
+# ==================================
+# ==== REGISTRO DOS HANDLERS ====
+# ==================================
+
+def register_error_handlers(app: Flask) -> None:
     """
     Registra os manipuladores de erro centralizados no aplicativo Flask.
+
+    Esta função deve ser chamada dentro da factory `create_app` em `app.py`
+    para que os handlers sejam ativados para toda a aplicação.
+
+    Args:
+        app (Flask): A instância do aplicativo Flask.
     """
+
     @app.errorhandler(APIError)
-    def handle_api_error(error):
-        """Captura todas as exceções personalizadas da nossa API."""
+    def handle_api_error(error: APIError):
+        """
+        Captura e formata qualquer exceção que herde de `APIError`.
+        Isso garante que todos os nossos erros customizados tenham a mesma
+        estrutura de resposta JSON.
+        """
         response = {
             "status": "error",
             "message": error.message
         }
-        # Se for um erro de validação, inclua os detalhes
+        # Se for um erro de validação com detalhes, anexa os detalhes.
         if isinstance(error, InvalidInputError) and error.errors:
             response["errors"] = error.errors
             
         return jsonify(response), error.status_code
         
     @app.errorhandler(HTTPException)
-    def handle_http_exception(error):
-        """Captura exceções padrão do Werkzeug (Flask), como 404 e 500."""
+    def handle_http_exception(error: HTTPException):
+        """
+        Captura exceções HTTP padrão do Werkzeug/Flask (ex: 404, 500, 405).
+        Isso garante que mesmo erros não previstos pela nossa lógica customizada
+        ainda retornem um JSON padronizado, em vez de uma página HTML de erro.
+        """
         return jsonify({
             "status": "error",
-            "message": str(error)
+            "message": error.description or str(error) # .description geralmente tem a melhor mensagem
         }), error.code
+
+# Define o que é "público" neste módulo
+__all__ = [
+    "APIError", "InvalidInputError", "ResourceNotFoundError", "ConflictError",
+    "ForbiddenError", "UnauthorizedError", "register_error_handlers"
+]

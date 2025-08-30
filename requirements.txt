@@ -5,3 +5,4 @@ Flask-Bcrypt
 PyJWT
 psycopg[binary]
 pydantic
+python-dotenv
