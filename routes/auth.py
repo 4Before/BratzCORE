@@ -37,7 +37,7 @@ def auth():
     return success_response("User registered", {
         "token": token,
         "email": user.email,
-        "account_type": user.account_type
+        "account_type": user.account_type,
     }, 201)
 
 
@@ -61,5 +61,6 @@ def login():
         "token": token,
         "email": user.email,
         "account_type": user.account_type,
-        "privileges": user.privileges
+        "privileges": user.privileges,
+        "profile": user.profile
     })

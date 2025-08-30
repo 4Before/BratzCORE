@@ -1,4 +1,3 @@
-# seeder.py
 import uuid
 from datetime import datetime
 from app import create_app, db
