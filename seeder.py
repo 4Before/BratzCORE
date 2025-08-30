@@ -74,7 +74,8 @@ def seed_database():
                 item="Shampoo",
                 brand="Bratz",
                 purchase_value=5.50,
-                sale_value=12.99
+                sale_value=12.99,
+                category="Higiene"
             )
             db.session.add(shampoo_product)
         else:
@@ -88,6 +89,7 @@ def seed_database():
                 brand="Bratz",
                 purchase_value=6.00,
                 sale_value=13.99,
+                category="Higiene"
             )
             db.session.add(condicionador_product)
         else:

@@ -4,16 +4,15 @@ from utils.responses import success_response, error_response
 import utils.auth as auth_utils
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from typing import Optional, Dict
+from sqlalchemy.orm.attributes import flag_modified
 
 clients_bp = Blueprint("clients", __name__)
 
-# --- Models de Validação com Pydantic ---
-class ClientCreatePayload(BaseModel):
-    """Modelo de validação para a criação de um cliente."""
+# --- Modelos de Validação com Pydantic ---
+class ClientPayload(BaseModel):
     cpf: str = Field(min_length=11, max_length=14)
     name: str = Field(min_length=1)
     nickname: Optional[str] = None
-    # A validação de Dict é feita diretamente aqui pela Pydantic
     discounts: Optional[Dict[str, float]] = None
     phone: Optional[str] = None
     notes: Optional[str] = None
@@ -21,127 +20,140 @@ class ClientCreatePayload(BaseModel):
     @field_validator('cpf')
     @classmethod
     def format_cpf(cls, v: str):
-        """Formata o CPF removendo pontos e traços."""
         return v.replace('.', '').replace('-', '')
     
     @field_validator('name', 'nickname')
     @classmethod
     def strip_strings(cls, v: str):
-        """Remove espaços em branco no início e fim de strings."""
-        return v.strip()
+        if v:
+            return v.strip()
+        return v
 
 # ====================================
-# ==== POST - /BRATZ/CLIENTS/ ====
+# ==== CRUD BÁSICO DE CLIENTES ====
 # ====================================
+
 @clients_bp.route("/clients", methods=["POST"])
 @auth_utils.token_required
 @auth_utils.privilege_required("CLIENT_CREATOR")
 def create_client():
-    """
-    Cria um novo cliente no sistema.
-    Requer privilégio 'CLIENT_CREATOR'.
-    """
+    """Cria um novo cliente no sistema."""
     data = request.get_json(silent=True) or {}
-
     try:
-        # Valida os dados de entrada usando Pydantic
-        payload = ClientCreatePayload(**data)
+        payload = ClientPayload(**data)
     except ValidationError as e:
         return error_response(f"Validation Error: {e.errors()}", 400)
 
-    # Verifica se o CPF já existe no banco de dados
-    existing_client = Client.query.filter_by(cpf=payload.cpf).first()
-    if existing_client:
-        return error_response(f"Client with CPF '{payload.cpf}' already exists.", 409)
+    if Client.query.filter_by(cpf=payload.cpf).first():
+        return error_response(f"Cliente com CPF '{payload.cpf}' já existe.", 409)
 
-    # Cria a nova instância do cliente
     new_client = Client(
         cpf=payload.cpf,
         name=payload.name,
         nickname=payload.nickname,
-        discounts=payload.discounts,
+        discounts=payload.discounts or {},
         phone=payload.phone,
         notes=payload.notes
     )
-
     try:
         db.session.add(new_client)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return error_response(f"Failed to create client: {str(e)}", 500)
+        return error_response(f"Falha ao criar cliente: {str(e)}", 500)
+    
+    return success_response("Cliente criado com sucesso", new_client.to_dict(), 201)
 
-    return success_response("Client created successfully", {
-        "id": new_client.id,
-        "cpf": new_client.cpf,
-        "name": new_client.name,
-        "nickname": new_client.nickname,
-        "phone": new_client.phone
-    }, 201)
-
-# ====================================
-# ==== GET - /BRATZ/CLIENTS/ ====
-# ====================================
 @clients_bp.route("/clients", methods=["GET"])
 @auth_utils.token_required
 def list_clients():
-    """
-    Lista todos os clientes com suporte a pesquisa e paginação.
-    """
+    """Lista todos os clientes com suporte a pesquisa."""
     search_query = request.args.get('q', '').strip()
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-
     query = Client.query
     if search_query:
-        # Permite buscar por CPF, nome ou apelido
+        search_term = f'%{search_query}%'
         query = query.filter(
-            (Client.cpf.ilike(f'%{search_query}%')) |
-            (Client.name.ilike(f'%{search_query}%')) |
-            (Client.nickname.ilike(f'%{search_query}%'))
+            (Client.cpf.ilike(search_term)) |
+            (Client.name.ilike(search_term)) |
+            (Client.nickname.ilike(search_term))
         )
-        
-    clients_pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    
-    clients = [
-        {
-            "id": c.id,
-            "cpf": c.cpf,
-            "name": c.name,
-            "nickname": c.nickname,
-            "phone": c.phone,
-            "discounts": c.discounts
-        }
-        for c in clients_pagination.items
-    ]
+    clients = [c.to_dict() for c in query.all()]
+    return success_response("Clientes recuperados com sucesso", {"clients": clients})
 
-    return success_response("Clients retrieved successfully", {
-        "clients": clients,
-        "total": clients_pagination.total,
-        "pages": clients_pagination.pages,
-        "current_page": clients_pagination.page
-    })
-    
-# ======================================
-# ==== DELETE - /BRATZ/CLIENTS/<id> ====
-# ======================================
 @clients_bp.route("/clients/<int:client_id>", methods=["DELETE"])
 @auth_utils.token_required
 @auth_utils.privilege_required("CLIENT_CREATOR")
 def delete_client(client_id):
-    """
-    Deleta um cliente pelo ID.
-    Requer privilégio 'CLIENT_CREATOR'.
-    """
-    client = Client.query.get(client_id)
-    if not client:
-        return error_response("Client not found", 404)
-
+    """Deleta um cliente pelo ID."""
+    client = Client.query.get_or_404(client_id)
     try:
         db.session.delete(client)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return error_response(f"Failed to delete client: {str(e)}", 500)
+        return error_response(f"Falha ao deletar cliente: {str(e)}", 500)
+    return success_response("Cliente deletado com sucesso")
 
-    return success_response("Client deleted successfully")
+# ======================================
+# ==== CRUD DE DESCONTOS DO CLIENTE ====
+# ======================================
+
+@clients_bp.route("/clients/<int:client_id>/discounts", methods=["GET"])
+@auth_utils.token_required
+def get_client_discounts(client_id):
+    """Lista os descontos de um cliente específico."""
+    client = Client.query.get_or_404(client_id)
+    return success_response("Descontos do cliente recuperados.", client.discounts or {})
+
+@clients_bp.route("/clients/<int:client_id>/discounts", methods=["POST"])
+@auth_utils.token_required
+@auth_utils.privilege_required("CLIENT_CREATOR")
+def add_or_update_client_discount(client_id):
+    """Adiciona ou atualiza um desconto para um cliente."""
+    client = Client.query.get_or_404(client_id)
+    data = request.get_json()
+    category = data.get("category")
+    percentage = data.get("percentage")
+
+    if not category or not isinstance(percentage, (int, float)):
+        return error_response("Campos 'category' (string) e 'percentage' (número) são obrigatórios.", 400)
+        
+    if client.discounts is None:
+        client.discounts = {}
+
+    client.discounts[category.lower()] = percentage
+    
+    # Avisa o SQLAlchemy que o campo JSON foi modificado
+    flag_modified(client, "discounts")
+    
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f"Falha ao salvar desconto: {str(e)}", 500)
+        
+    return success_response(f"Desconto para '{category}' atualizado com sucesso.", client.discounts)
+
+@clients_bp.route("/clients/<int:client_id>/discounts/<string:category>", methods=["DELETE"])
+@auth_utils.token_required
+@auth_utils.privilege_required("CLIENT_CREATOR")
+def remove_client_discount(client_id, category):
+    """Remove um desconto de um cliente pela categoria."""
+    client = Client.query.get_or_404(client_id)
+    category_key = category.lower()
+
+    if client.discounts is None or category_key not in client.discounts:
+        return error_response(f"Desconto para a categoria '{category}' não encontrado.", 404)
+        
+    del client.discounts[category_key]
+    
+    # Avisa o SQLAlchemy que o campo JSON foi modificado
+    flag_modified(client, "discounts")
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f"Falha ao remover desconto: {str(e)}", 500)
+        
+    return success_response(f"Desconto para '{category}' removido com sucesso.")

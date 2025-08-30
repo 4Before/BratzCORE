@@ -20,6 +20,7 @@ class ProductCreatePayload(BaseModel):
     purchase_value: Optional[float] = None
     sale_value: float = Field(gt=0)
     expiration_date: Optional[str] = None
+    category: Optional[str] = None
 
     @field_validator('item')
     @classmethod
@@ -59,7 +60,8 @@ def create_product():
             brand=payload.brand,
             purchase_value=payload.purchase_value,
             sale_value=payload.sale_value,
-            expiration_date=payload.expiration_date
+            expiration_date=payload.expiration_date,
+            category=payload.category
         )
     except ValidationError as e:
         return error_response(f"Validation Error: {e.errors()}", 400)

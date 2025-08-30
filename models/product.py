@@ -14,6 +14,7 @@ class Product(db.Model):
     sale_value = db.Column(db.Float, nullable=False)
     expiration_date = db.Column(db.Date, nullable=True)
     desc = db.Column(JSON, nullable=True, default=dict)
+    category = db.Column(db.String(100), nullable=True, index=True)
 
     def __repr__(self) -> str:
         return f"<Product {self.id} {self.item}>"
@@ -26,5 +27,6 @@ class Product(db.Model):
             "purchase_value": self.purchase_value,
             "sale_value": self.sale_value,
             "expiration_date": str(self.expiration_date) if self.expiration_date else None,
-            "desc": self.desc
+            "desc": self.desc,
+            "category": self.category
         }
