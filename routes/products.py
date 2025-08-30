@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from typing import Optional
 from flask import Blueprint, request
 from pydantic import BaseModel, Field, ValidationError, field_validator
@@ -192,3 +192,106 @@ def delete_product(product_id):
         return error_response(f"Failed to delete product: {str(e)}", 500)
 
     return success_response("Product deleted successfully")
+
+
+# =======================================================
+# ==== GET - /BRATZ/PRODUCTS/REPORTS/LOW-STOCK ====
+# =======================================================
+@products_bp.route("/products/reports/low-stock", methods=["GET"])
+@auth_utils.token_required
+@auth_utils.privilege_required("STORAGE_MODIFIER") # Usando um privilégio que já existe
+def get_low_stock_report():
+    """
+    Lista produtos com estoque baixo.
+    Requer privilégio 'STORAGE_MODIFIER'.
+    
+    Query Params:
+    - threshold: int (opcional, padrão 10) - O nível de estoque considerado baixo.
+    - page: int (opcional, padrão 1)
+    - per_page: int (opcional, padrão 20)
+    """
+    try:
+        threshold = request.args.get('threshold', 10, type=int)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+
+        query = Product.query.filter(Product.quantity_in_stock <= threshold)
+        
+        products_pagination = query.order_by(Product.quantity_in_stock.asc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        products_data = [
+            {
+                "id": p.id,
+                "item": p.item,
+                "brand": p.brand,
+                "quantity_in_stock": p.quantity_in_stock,
+                "sale_value": p.sale_value,
+            }
+            for p in products_pagination.items
+        ]
+
+        return success_response("Low stock report retrieved successfully", {
+            "products": products_data,
+            "total": products_pagination.total,
+            "pages": products_pagination.pages,
+            "current_page": products_pagination.page,
+            "threshold": threshold
+        })
+    except Exception as e:
+        return error_response(f"Failed to generate low stock report: {str(e)}", 500)
+
+# =======================================================
+# ==== GET - /BRATZ/PRODUCTS/REPORTS/EXPIRING ====
+# =======================================================
+@products_bp.route("/products/reports/expiring", methods=["GET"])
+@auth_utils.token_required
+@auth_utils.privilege_required("STORAGE_MODIFIER")
+def get_expiring_products_report():
+    """
+    Lista produtos que estão próximos da data de vencimento.
+    Requer privilégio 'STORAGE_MODIFIER'.
+    
+    Query Params:
+    - days: int (opcional, padrão 30) - O número de dias no futuro a serem verificados.
+    - page: int (opcional, padrão 1)
+    - per_page: int (opcional, padrão 20)
+    """
+    try:
+        days_ahead = request.args.get('days', 30, type=int)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+
+        today = date.today()
+        expiration_limit_date = today + timedelta(days=days_ahead)
+
+        query = Product.query.filter(
+            Product.expiration_date.isnot(None),
+            Product.expiration_date.between(today, expiration_limit_date)
+        )
+
+        products_pagination = query.order_by(Product.expiration_date.asc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        products_data = [
+            {
+                "id": p.id,
+                "item": p.item,
+                "brand": p.brand,
+                "quantity_in_stock": p.quantity_in_stock,
+                "expiration_date": str(p.expiration_date),
+            }
+            for p in products_pagination.items
+        ]
+        
+        return success_response("Expiring products report retrieved successfully", {
+            "products": products_data,
+            "total": products_pagination.total,
+            "pages": products_pagination.pages,
+            "current_page": products_pagination.page,
+            "days_ahead": days_ahead
+        })
+    except Exception as e:
+        return error_response(f"Failed to generate expiring products report: {str(e)}", 500)
