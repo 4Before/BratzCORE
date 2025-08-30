@@ -13,7 +13,6 @@ class Product(db.Model):
     purchase_value = db.Column(db.Float, nullable=True)
     sale_value = db.Column(db.Float, nullable=False)
     expiration_date = db.Column(db.Date, nullable=True)
-    quantity_in_stock = db.Column(db.Integer, nullable=False, server_default='0')
     desc = db.Column(JSON, nullable=True, default=dict)
 
     def __repr__(self) -> str:

@@ -2,14 +2,15 @@ from flask import Flask
 from config import Config
 from utils.extensions import db, migrate
 from utils.error_handling import register_error_handlers
-from routes import accounts_bp, products_bp, clients_bp, finances_bp, auth_bp
+from routes import accounts_bp, products_bp, clients_bp, finances_bp, auth_bp, stocks_bp
 
 ALL_BLUEPRINTS = [
     accounts_bp,
     products_bp,
     clients_bp,
     finances_bp,
-    auth_bp
+    auth_bp,
+    stocks_bp
 ]
 
 def create_app():
