@@ -1,4 +1,3 @@
-# seeder.py
 import uuid
 from datetime import datetime
 from app import create_app, db
@@ -49,7 +48,7 @@ def seed_database():
                 email=cashier_email, 
                 account_type="CAIXA", 
                 privileges={},
-                profile={"register_number": "CX001", "name": "Caixa Padrão"}
+                profile={"register_number": "CX001", "operator_name": "Caixa Padrão"}
             )
             cashier_user.set_password("CaixaPass123!")
             db.session.add(cashier_user)

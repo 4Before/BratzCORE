@@ -24,13 +24,11 @@ class ProductCreatePayload(BaseModel):
     @field_validator('item')
     @classmethod
     def strip_item(cls, v: str):
-        """Remove espaços em branco do campo 'item'."""
         return v.strip()
-   
+    
     @field_validator('brand')
     @classmethod
     def strip_brand(cls, v: Optional[str]):
-        """Remove espaços em branco do campo 'brand'."""
         if v:
             return v.strip()
         return v
@@ -38,14 +36,12 @@ class ProductCreatePayload(BaseModel):
     @field_validator('expiration_date')
     @classmethod
     def parse_expiration_date(cls, v: Optional[str]):
-        """Converte a string de data (DD-MM-AAAA) para objeto date."""
         if not v:
             return None
         try:
             return datetime.strptime(v, '%d-%m-%Y').date()
         except ValueError:
             raise ValueError("Invalid date format. Expected DD-MM-AAAA.")
-
 
 # ====================================
 # ==== POST - /BRATZ/PRODUCTS/ ====
@@ -54,26 +50,10 @@ class ProductCreatePayload(BaseModel):
 @auth_utils.token_required
 @auth_utils.privilege_required("STOCK_MODIFIER")
 def create_product():
-    """
-    Cria um novo produto.
-    Requer privilégio 'STOCK_MODIFIER'.
-    
-    Campos necessários:
-    - item: str (obrigatório)
-    - sale_value: float (obrigatório)
-    
-    Campos opcionais:
-    - brand: str
-    - purchase_value: float
-    - expiration_date: str (formato DD-MM-AAAA)
-    """
+    """Cria um novo produto."""
     data = request.get_json(silent=True) or {}
-
     try:
-        # Usa Pydantic para validação
         payload = ProductCreatePayload(**data)
-        
-        # Cria o objeto do novo produto
         new_product = Product(
             item=payload.item,
             brand=payload.brand,
@@ -93,15 +73,7 @@ def create_product():
         db.session.rollback()
         return error_response(f"Failed to create product: {str(e)}", 500)
 
-    return success_response("Product created successfully", {
-        "id": new_product.id,
-        "item": new_product.item,
-        "brand": new_product.brand,
-        "purchase_value": new_product.purchase_value,
-        "sale_value": new_product.sale_value,
-        "expiration_date": str(new_product.expiration_date) if new_product.expiration_date else None
-    }, 201)
-
+    return success_response("Product created successfully", new_product.to_dict(), 201)
 
 # ====================================
 # ==== GET - /BRATZ/PRODUCTS/ ====
@@ -110,75 +82,13 @@ def create_product():
 @auth_utils.token_required
 def list_products():
     """
-    Lista todos os produtos registrados.
-    
-    Permite filtrar por item ou marca, e também paginar os resultados.
-    Exemplo: /products?item=shampoo&page=1&per_page=10
+    Lista todos os produtos com estoque calculado e paginação.
     """
     item_filter = request.args.get('item', '').strip()
     brand_filter = request.args.get('brand', '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
-    query = Product.query
-    if item_filter:
-        query = query.filter(Product.item.ilike(f'%{item_filter}%'))
-    if brand_filter:
-        query = query.filter(Product.brand.ilike(f'%{brand_filter}%'))
-        
-    products_pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    products = [
-        {
-            "id": prod.id,
-            "item": prod.item,
-            "brand": prod.brand,
-            "purchase_value": prod.purchase_value,
-            "sale_value": prod.sale_value,
-            "expiration_date": str(prod.expiration_date) if prod.expiration_date else None,
-        }
-        for prod in products_pagination.items
-    ]
-
-    return success_response("Products retrieved successfully", {
-        "products": products,
-        "total": products_pagination.total,
-        "pages": products_pagination.pages,
-        "current_page": products_pagination.page
-    })
-
-
-# ====================================
-# ==== GET - /BRATZ/PRODUCTS/<id> ====
-# ====================================
-@products_bp.route("/products/<int:product_id>", methods=["GET"])
-@auth_utils.token_required
-def get_product(product_id):
-    """
-    Retorna um produto específico pelo ID.
-    """
-    product = Product.query.get(product_id)
-    if not product:
-        return error_response("Product not found", 404)
-
-    return success_response("Product retrieved successfully", {
-        "id": product.id,
-        "item": product.item,
-        "brand": product.brand,
-        "purchase_value": product.purchase_value,
-        "sale_value": product.sale_value,
-        "expiration_date": str(product.expiration_date) if product.expiration_date else None
-    })
-
-@products_bp.route('/products', methods=['GET'])
-@auth_utils.token_required
-def get_products():
-    """
-    Lista todos os produtos ou busca por item/marca.
-    Agora também retorna a quantidade total em estoque para cada produto.
-    """
-    search_query = request.args.get('item', None)
-    
     # Subquery para calcular a soma do estoque para cada produto
     stock_subquery = db.session.query(
         stock_item.c.product_id,
@@ -189,72 +99,92 @@ def get_products():
     query = db.session.query(Product, stock_subquery.c.total_stock)\
         .outerjoin(stock_subquery, Product.id == stock_subquery.c.product_id)
 
-    if search_query:
-        query = query.filter(Product.item.ilike(f'%{search_query}%'))
+    if item_filter:
+        query = query.filter(Product.item.ilike(f'%{item_filter}%'))
+    if brand_filter:
+        query = query.filter(Product.brand.ilike(f'%{brand_filter}%'))
+        
+    products_pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-    results = query.all()
-    
     products_list = []
-    for product, total_stock in results:
+    for product, total_stock in products_pagination.items:
         product_data = product.to_dict()
-        # Adiciona a quantidade de estoque ao dicionário do produto
         product_data['quantity_in_stock'] = total_stock or 0
         products_list.append(product_data)
-        
-    return success_response("Produtos listados com sucesso", {"products": products_list})
 
+    return success_response("Products retrieved successfully", {
+        "products": products_list,
+        "total": products_pagination.total,
+        "pages": products_pagination.pages,
+        "current_page": products_pagination.page
+    })
 
+# ====================================
+# ==== GET - /BRATZ/PRODUCTS/<id> ====
+# ====================================
+@products_bp.route("/products/<int:product_id>", methods=["GET"])
+@auth_utils.token_required
+def get_product(product_id):
+    """Retorna um produto específico pelo ID com estoque calculado."""
+    product = Product.query.get_or_404(product_id)
     
+    # Calcula o estoque para este produto específico
+    stmt = db.select(func.sum(stock_item.c.quantity)).where(stock_item.c.product_id == product_id)
+    total_stock = db.session.execute(stmt).scalar_one_or_none()
 
-# ====================================
+    product_data = product.to_dict()
+    product_data['quantity_in_stock'] = total_stock or 0
+    
+    return success_response("Product retrieved successfully", product_data)
+
+# ========================================
 # ==== DELETE - /BRATZ/PRODUCTS/<id> ====
-# ====================================
+# ========================================
 @products_bp.route("/products/<int:product_id>", methods=["DELETE"])
 @auth_utils.token_required
 @auth_utils.privilege_required("STOCK_MODIFIER")
 def delete_product(product_id):
-    """
-    Deleta um produto pelo ID.
-    Requer privilégio 'STOCK_MODIFIER'.
-    """
+    """Deleta um produto pelo ID."""
     product = Product.query.get(product_id)
     if not product:
         return error_response("Product not found", 404)
-
     try:
+        # Adicional: remover de qualquer estoque antes de deletar o produto
+        delete_stmt = db.delete(stock_item).where(stock_item.c.product_id == product_id)
+        db.session.execute(delete_stmt)
+        
         db.session.delete(product)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         return error_response(f"Failed to delete product: {str(e)}", 500)
-
     return success_response("Product deleted successfully")
-
 
 # =======================================================
 # ==== GET - /BRATZ/PRODUCTS/REPORTS/LOW-STOCK ====
 # =======================================================
 @products_bp.route("/products/reports/low-stock", methods=["GET"])
 @auth_utils.token_required
-@auth_utils.privilege_required("STORAGE_MODIFIER") # Usando um privilégio que já existe
+@auth_utils.privilege_required("STORAGE_MODIFIER")
 def get_low_stock_report():
-    """
-    Lista produtos com estoque baixo.
-    Requer privilégio 'STORAGE_MODIFIER'.
-    
-    Query Params:
-    - threshold: int (opcional, padrão 10) - O nível de estoque considerado baixo.
-    - page: int (opcional, padrão 1)
-    - per_page: int (opcional, padrão 20)
-    """
+    """Lista produtos com estoque baixo."""
     try:
         threshold = request.args.get('threshold', 10, type=int)
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
 
-        query = Product.query.filter(Product.quantity_in_stock <= threshold)
+        # Subquery para calcular o estoque total
+        stock_subquery = db.session.query(
+            stock_item.c.product_id.label("product_id"),
+            func.sum(stock_item.c.quantity).label("total_stock")
+        ).group_by(stock_item.c.product_id).subquery()
+
+        # Query principal que filtra pelo estoque calculado
+        query = db.session.query(Product, stock_subquery.c.total_stock)\
+            .join(stock_subquery, Product.id == stock_subquery.c.product_id)\
+            .filter(stock_subquery.c.total_stock <= threshold)
         
-        products_pagination = query.order_by(Product.quantity_in_stock.asc()).paginate(
+        products_pagination = query.order_by(stock_subquery.c.total_stock.asc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
 
@@ -263,10 +193,10 @@ def get_low_stock_report():
                 "id": p.id,
                 "item": p.item,
                 "brand": p.brand,
-                "quantity_in_stock": p.quantity_in_stock,
+                "quantity_in_stock": total_stock or 0,
                 "sale_value": p.sale_value,
             }
-            for p in products_pagination.items
+            for p, total_stock in products_pagination.items
         ]
 
         return success_response("Low stock report retrieved successfully", {
@@ -286,15 +216,7 @@ def get_low_stock_report():
 @auth_utils.token_required
 @auth_utils.privilege_required("STORAGE_MODIFIER")
 def get_expiring_products_report():
-    """
-    Lista produtos que estão próximos da data de vencimento.
-    Requer privilégio 'STORAGE_MODIFIER'.
-    
-    Query Params:
-    - days: int (opcional, padrão 30) - O número de dias no futuro a serem verificados.
-    - page: int (opcional, padrão 1)
-    - per_page: int (opcional, padrão 20)
-    """
+    """Lista produtos que estão próximos da data de vencimento."""
     try:
         days_ahead = request.args.get('days', 30, type=int)
         page = request.args.get('page', 1, type=int)
@@ -303,10 +225,19 @@ def get_expiring_products_report():
         today = date.today()
         expiration_limit_date = today + timedelta(days=days_ahead)
 
-        query = Product.query.filter(
-            Product.expiration_date.isnot(None),
-            Product.expiration_date.between(today, expiration_limit_date)
-        )
+        # Subquery para o estoque, igual às outras rotas
+        stock_subquery = db.session.query(
+            stock_item.c.product_id,
+            func.sum(stock_item.c.quantity).label('total_stock')
+        ).group_by(stock_item.c.product_id).subquery()
+
+        # Junta o filtro de data com o cálculo de estoque
+        query = db.session.query(Product, stock_subquery.c.total_stock)\
+            .outerjoin(stock_subquery, Product.id == stock_subquery.c.product_id)\
+            .filter(
+                Product.expiration_date.isnot(None),
+                Product.expiration_date.between(today, expiration_limit_date)
+            )
 
         products_pagination = query.order_by(Product.expiration_date.asc()).paginate(
             page=page, per_page=per_page, error_out=False
@@ -317,10 +248,10 @@ def get_expiring_products_report():
                 "id": p.id,
                 "item": p.item,
                 "brand": p.brand,
-                "quantity_in_stock": p.quantity_in_stock,
+                "quantity_in_stock": total_stock or 0,
                 "expiration_date": str(p.expiration_date),
             }
-            for p in products_pagination.items
+            for p, total_stock in products_pagination.items
         ]
         
         return success_response("Expiring products report retrieved successfully", {
