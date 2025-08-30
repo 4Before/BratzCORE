@@ -4,7 +4,9 @@ from flask import Blueprint, request
 from pydantic import BaseModel, Field, ValidationError, field_validator
 import utils.auth as auth_utils
 from models.product import Product, db
+from models.stock import stock_item
 from utils.responses import success_response, error_response
+from sqlalchemy import func
 
 products_bp = Blueprint("products", __name__)
 
@@ -167,6 +169,41 @@ def get_product(product_id):
         "sale_value": product.sale_value,
         "expiration_date": str(product.expiration_date) if product.expiration_date else None
     })
+
+@products_bp.route('/products', methods=['GET'])
+@auth_utils.token_required
+def get_products():
+    """
+    Lista todos os produtos ou busca por item/marca.
+    Agora também retorna a quantidade total em estoque para cada produto.
+    """
+    search_query = request.args.get('item', None)
+    
+    # Subquery para calcular a soma do estoque para cada produto
+    stock_subquery = db.session.query(
+        stock_item.c.product_id,
+        func.sum(stock_item.c.quantity).label('total_stock')
+    ).group_by(stock_item.c.product_id).subquery()
+
+    # Query principal que junta o produto com seu estoque total
+    query = db.session.query(Product, stock_subquery.c.total_stock)\
+        .outerjoin(stock_subquery, Product.id == stock_subquery.c.product_id)
+
+    if search_query:
+        query = query.filter(Product.item.ilike(f'%{search_query}%'))
+
+    results = query.all()
+    
+    products_list = []
+    for product, total_stock in results:
+        product_data = product.to_dict()
+        # Adiciona a quantidade de estoque ao dicionário do produto
+        product_data['quantity_in_stock'] = total_stock or 0
+        products_list.append(product_data)
+        
+    return success_response("Produtos listados com sucesso", {"products": products_list})
+
+
     
 
 # ====================================
