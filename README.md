@@ -1,48 +1,50 @@
 # 📦 BratzCORE – O núcleo do seu mercado
 
-API (em teste) desenvolvida para a disciplina de Desenvolvimento Web III; Aqui está sendo criada a API responsável por criar contas, organizar todos os sistemas e servir como núcleo do seu mercado.
-- BratzCORE - Núcleo
-- BratzCAIXA - App desktop
-- BratzADM - Web App
-- BratzSTOCK - App Mobile
-
+API desenvolvida para a disciplina de Desenvolvimento Web III; O coração do seu mercado está conosco. Use já o sistema Bratz e automatize seu serviço.
 
 ## 🧱 Estrutura do projeto:
 ```bash
-BratzApi/
-│
-├── app.py                # Arquivo principal do app Flask
-├── config.py             # Configurações do Flask e banco de dados
-├── models/
-│   └── __init__.py       # Inicializador
-│   └── user_model.py     # Modelo de usuário
-│   └── product_model.py  # Modelo de produto
-├── routes/
-│   └── __init__.py       # Inicializador
-│   └── accounts.py       # Rota de contas
-│   └── auth.py           # Rota de autenticação
-│   └── clients.py        # Rota de clientes
-│   └── finance.py        # Rota de finança
-│   └── products.py       # Rota de produtos
-│   └── stocks.py         # Rota de estoques
-├── routes/
-│   └── __init__.py       # Inicializador
-│   └── auth.py           # Utilitário de autenticação (para token e autoridade)
-│   └── extensions.py     # Extnsões de banco de dados
-│   └── jwt_manager.py    # Suporte ao JWT de segurança
-│   └── responses.py      # Utilitário de respostas (para padronização)
-├── seeder.py             # Script de teste de conexão
-├── requirements.txt      # Dependências do projeto
-├── migrations/           # Diretório de migrações do banco de dados
-└── README.md             # Este arquivo
+BratzCORE/
+├── migrations/             # Contém os scripts de migração do banco de dados (Alembic)
+├── models/                 # Define os modelos de dados (tabelas) com SQLAlchemy
+│   ├── init.py
+│   ├── client.py
+│   ├── finances.py
+│   ├── product.py
+│   ├── stock.py
+│   ├── supplier.py
+│   └── user.py
+├── routes/                 # Define os endpoints da API (Blueprints)
+│   ├── init.py
+│   ├── accounts.py
+│   ├── auth.py
+│   ├── clients.py
+│   ├── finance.py
+│   ├── products.py
+│   ├── stocks.py
+│   └── suppliers.py
+├── utils/                  # Módulos de utilidade (autenticação, respostas, etc.)
+│   ├── init.py
+│   ├── accounts.py
+│   ├── auth.py
+│   ├── error_handling.py
+│   ├── extensions.py
+│   ├── jwt_manager.py
+│   └── responses.py
+├── .env                    # Arquivo para variáveis de ambiente (NÃO VERSIONADO)
+├── .gitignore              # Arquivos e pastas a serem ignorados pelo Git
+├── app.py                  # Ponto de entrada da aplicação (Application Factory)
+├── config.py               # Carrega as configurações da aplicação
+├── requirements.txt        # Lista de dependências Python do projeto
+└── seeder.py               # Script para popular o banco de dados com dados de teste
 ```
 
 ## 🛠️ Instalação
 1. Clone o repositório
 
 ```bash
-https://github.com/vichsort/BratzCORE.git
-cd bratzcore
+https://github.com/4Before/BratzCORE.git
+cd BratzCORE
 
 ```
 
@@ -64,15 +66,21 @@ pip install "psycopg[binary]"
 ```
 
 ## ⚙️ Configuração
-Estamos usando uma configuração local de banco de dados. Por isso, ao instalar, dite sua instância dentro do arquivo `config.py`
-```python
-SQLALCHEMY_DATABASE_URI = "postgresql+psycopg://usuario:senha@localhost:5432/seubanco"
+É importante que você tenha em mente que a produção está sendo desenvolvida usando um banco de dados serverless da NeonDB. Aqui está a forma de configurar o sistema para que você possa conectar sua database:
+- Crie um arquivo `.env` contendo chaves secretas e sua string de conexão do banco de dados (NeonDB ou PostgreSQL local).
+```env
+SECRET_KEY="sua-chave-secreta-aqui"
+JWT_SECRET_KEY="sua-outra-chave-secreta-aqui"
+DATABASE_URL="postgresql+psycopg://user:password@host:port/dbname"
 ```
-Então, rode o script de iniciação de banco de dados:
-```python
+- Realize a migração de update do sistema do banco de dados usando o comando migrate
+```bash
+flask db upgrade
+```
+- O seu sistema então possui as tabelas constituintes da aplicação. Agora, simplesmente popule o banco de dados para teste (opcional).
+```bash
 python seeder.py
 ```
-
 
 ## 🎮 Executando o projeto
 Apenas inicie o projeto inicial 
@@ -82,83 +90,70 @@ python app.py
 ```
 
 ## 🗺️ Mapa de requisições
-### Contas
-`/bratz/auth/login` POST - Login <br>
-`/bratz/accounts` GET - Vê as contas<br>
-`/bratz/accounts/{id}` GET - Vê uma conta específica<br>
-`/bratz/accounts/{id}/profile` PATCH - Muda informações de um perfil<br>
-`/bratz/accounts/{id}/privileges` PATCH - Muda previlégios de um perfil<br>
-`/bratz/accounts` POST - Criação de contas<br>
-`/bratz/accounts/{id}` DELETE - Deleta uma conta<br>
 
-### Clientes
-`/bratz/clients` GET - Vê todos os clientes<br>
-`/bratz/clients/{id}` GET - Vê um cliente específico<br>
-`/bratz/clients/{id}` PATCH - Muda dados de um cliente específico<br>
-`/bratz/clients` POST - Adiciona um cliente<br>
+Todas as rotas são prefixadas com `/bratz`.
 
-### Estoques
-`/bratz/stock` GET - Vê todos os estoques (a fazer) <br>
-`/bratz/stock/{id}` GET - Vê um estoque esoecífico (e sua movimentação) (a fazer) <br>
-`/bratz/stock` POST - Cria um estoque (a fazer) <br>
-`/bratz/stock/{id}` PATCH - Modifica um estoque específico (a fazer) <br>
+### Autenticação (`/auth`)
+- `POST - /bratz/auth/register`: Registra um novo usuário básico.
+- `POST - /bratz/auth/login`: Realiza login e obtém um token JWT.
 
-### Produtos
-`/bratz/products` GET - Vê a lista de itens<br>
-`/bratz/products/{id}` GET - Vê um item específico<br>
-`/bratz/products/{id}` PATCH - Modifica o item<br>
-`/bratz/products` POST - Cria um item <br>
+### Contas de Usuário (`/accounts`)
+- `GET    - /bratz/accounts`: Lista todas as contas de usuário.
+- `POST   - /bratz/accounts`: Cria uma nova conta de usuário (requer privilégio).
+- `GET    - /bratz/accounts/<id>`: Busca os dados de uma conta específica.
+- `PATCH  - /bratz/accounts/<id>/profile`: Atualiza o perfil de uma conta.
+- `PATCH  - /bratz/accounts/<id>/privileges`: Atualiza privilégios de uma conta do tipo `CUSTOM`.
+- `DELETE - /bratz/accounts/<id>`: Deleta uma conta.
 
-### Armazenamento
-`/bratz/stock/{id}/storage/{item}` GET - Vê quantidade de tal item dentro do armazenamento do estoque (a fazer) <br>
-`/bratz/stock/{id}/storage/{item}` POST - Adiciona um produto ao armazenamento. {item} é o id do item (a fazer) <br>
-`/bratz/stock/{id}/storage/{item}/item` PATCH - Muda dados do item específico (a fazer) <br>
-`/bratz/stock/{id}/storage/{item}/quantity` PATCH - Muda quantidade do item específico. (a fazer) <br>
+### Clientes (`/clients`)
+- `GET    - /bratz/clients`: Lista ou busca por clientes.
+- `POST   - /bratz/clients`: Cria um novo cliente.
+- `GET    - /bratz/clients/<id>`: Busca um cliente específico.
+- `PUT    - /bratz/clients/<id>`: Atualiza os dados de um cliente.
+- `DELETE - /bratz/clients/<id>`: Deleta um cliente.
+- `GET    - /bratz/clients/<id>/discounts`: Lista os descontos de um cliente.
+- `POST   - /bratz/clients/<id>/discounts`: Adiciona ou atualiza um desconto para um cliente.
+- `DELETE - /bratz/clients/<id>/discounts/<category>`: Remove um desconto específico de um cliente.
 
-### ADMIN
-`/bratz/stats/overview` GET - Vê estatísticas
-`/bratz/finance` GET - Vê dados financeiros. 
+### Produtos (`/products`)
+- `GET    - /bratz/products`: Lista ou busca produtos (com estoque e paginação).
+- `POST   - /bratz/products`: Cria um novo produto.
+- `GET    - /bratz/products/<id>`: Busca um produto específico (com estoque).
+- `PUT    - /bratz/products/<id>`: Atualiza os dados de um produto.
+- `DELETE - /bratz/products/<id>`: Deleta um produto.
+- `GET    - /bratz/products/reports/low-stock`: Gera relatório de produtos com estoque baixo.
+- `GET    - /bratz/products/reports/expiring`: Gera relatório de produtos próximos do vencimento.
+
+### Fornecedores (`/suppliers`)
+- `GET    - /bratz/suppliers`: Lista todos os fornecedores.
+- `POST   - /bratz/suppliers`: Cria um novo fornecedor.
+- `GET    - /bratz/suppliers/<id>`: Busca um fornecedor específico.
+- `PUT    - /bratz/suppliers/<id>`: Atualiza os dados de um fornecedor.
+- `DELETE - /bratz/suppliers/<id>`: Deleta um fornecedor.
+- `GET    - /bratz/suppliers/<id>/products`: Lista todos os produtos de um fornecedor.
+
+### Estoques (`/stocks`)
+- `GET    - /bratz/stocks`: Lista todos os locais de armazenamento.
+- `POST   - /bratz/stocks`: Cria um novo local de armazenamento.
+- `GET    - /bratz/stocks/<id>`: Busca um local de armazenamento específico.
+- `PUT    - /bratz/stocks/<id>`: Atualiza os dados de um local de armazenamento.
+- `DELETE - /bratz/stocks/<id>`: Deleta um local de armazenamento.
+- `GET    - /bratz/stocks/<id>/products`: Lista os produtos e suas quantidades em um estoque.
+- `POST   - /bratz/stocks/<id>/products/<product_id>`: Adiciona ou incrementa um produto em um estoque.
+- `PATCH  - /bratz/stocks/<id>/products/<product_id>/quantity`: Define a quantidade exata de um produto em um estoque.
+
+### Finanças (`/finances`)
+- `POST   - /bratz/finances/register-sell`: Registra uma nova venda.
+- `GET    - /bratz/finances/sells`: Lista o histórico de todas as vendas (admin).
+- `GET    - /bratz/finances/specific/<cashier_id>/sells`: Lista o histórico de vendas de um caixa.
+- `GET    - /bratz/finances/summary/daily`: Retorna um resumo financeiro consolidado para um dia.
+- `GET    - /bratz/finances/summary/monthly`: Retorna um resumo financeiro consolidado para um mês.
+- `GET    - /bratz/finances/reports/profit-margin`: Gera um relatório de margem de lucro em um período.
+- `GET    - /bratz/finances/reports/sales-flow`: Retorna o faturamento diário em um período (para gráficos).
+- `GET    - /bratz/finances/reports/payment-methods`: Agrupa o faturamento por método de pagamento.
+- `GET    - /bratz/finances/reports/sales-by-category`: *(A Fazer)* Rankeia as categorias de produtos por faturamento.
+- `GET    - /bratz/finances/reports/sales-by-operator`: *(A Fazer)* Mostra o desempenho de vendas por operador.
+- `GET    - /bratz/finances/reports/top-clients`: *(A Fazer)* Lista os clientes que mais compraram.
+- `POST   - /bratz/finances/entries`: *(A Fazer)* Registra uma nova despesa ou outra receita.
 
 ---
-
-## CRIANDO UMA CONTA
-Usando o token que você conseguiu como Bearer Token, você manda esse corpo (`http://127.0.0.1:5000/bratz/accounts`)
-```
-{
-  "email": "new.subowner@market.com",
-  "password": "StrongPass123!",
-  "confirm_password": "StrongPass123!",
-  "account_type": "FULL_MANAGEMENT"
-}
-```
-
-retorno
-```
-{
-    "data": {
-        "account_type": "FULL_MANAGEMENT",
-        "email": "new.subowner@market.com",
-        "id": 2,
-        "privileges": {
-            "ACCOUNT_CREATOR": false,
-            "ADMIN": true,
-            "BINDING": false,
-            "CLIENT_CREATOR": true,
-            "DOWN_STORAGE": false,
-            "FINANCE": false,
-            "MICRO_ACCOUNT_CREATOR": true,
-            "NF": true,
-            "PANEL_MODIFIER": false,
-            "REDO": true,
-            "STAT_VIEWER": false,
-            "STOCK_MODIFIER": true,
-            "STORAGE_MODIFIER": true,
-            "UNDO": true
-        }
-    },
-    "message": "Account created successfully",
-    "status": "success"
-}
-```
-
-

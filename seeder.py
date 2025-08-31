@@ -21,131 +21,65 @@ from app import create_app, db
 from models.user import User
 from models.product import Product
 from models.client import Client
+from models.supplier import Supplier
 from models.finances import Sell, ItemSold
 from models.stock import Stock, stock_item
-from models.supplier import Supplier
+from utils.accounts import DEFAULT_PRIVILEGES, ACCOUNT_CAIXA
 
 # --- Dados Iniciais Centralizados ---
-# Manter os dados aqui facilita a visualização e modificação.
 
 CORE_USERS = [
-    {
-        "filters": {"email": "owner@market.com"},
-        "defaults": {
-            "account_type": "OWNER",
-            "privileges": {"ADMIN": True, "ALL": True},
-            "password": "StrongPass123!"
-        }
-    },
-    {
-        "filters": {"email": "caixa01@market.com"},
-        "defaults": {
-            "account_type": "CAIXA",
-            "privileges": {},
-            "profile": {"register_number": "CX001", "operator_name": "Caixa Padrão"},
-            "password": "CaixaPass123!"
-        }
-    }
-]
-
-INITIAL_PRODUCTS = [
-    {
-        "filters": {"item": "Shampoo", "brand": "Bratz"},
-        "defaults": {
-            "purchase_value": 5.50, "sale_value": 12.99, "category": "Higiene"
-        },
-        "stock_quantity": 100
-    },
-    {
-        "filters": {"item": "Condicionador", "brand": "Bratz"},
-        "defaults": {
-            "purchase_value": 6.00, "sale_value": 13.99, "category": "Higiene"
-        },
-        "stock_quantity": 80
-    },
-    {
-        "filters": {"item": "Chaveiro", "brand": "Schenatto Horses Co."},
-        "defaults": {
-            "purchase_value": 3.00, "sale_value": 41.99, "category": "Horses"
-        },
-        "stock_quantity": 12
-    }
-]
-
-INITIAL_CLIENTS = [
-    {
-        "filters": {"cpf": "12345678900"},
-        "defaults": {
-            "name": "Daniel Prâmio", "phone": "49999998888", "discounts": {"Horses": 0.1}, 
-        }
-    },
-        {
-        "filters": {"cpf": "22345678900"},
-        "defaults": {
-            "name": "Cecilio Balbinott", "phone": "47999998888", "discounts": {"Higiene": 0.1}, 
-        }
-    }
+    {"filters": {"email": "owner@market.com"}, "defaults": {"account_type": "OWNER", "privileges": {"ADMIN": True, "ALL": True}, "password": "StrongPass123!"}},
+    {"filters": {"email": "caixa01@market.com"}, "defaults": {"account_type": "CAIXA", "privileges": DEFAULT_PRIVILEGES[ACCOUNT_CAIXA], "profile": {"register_number": "CX001", "operator_name": "Caixa Padrão"}, "password": "CaixaPass123!"}}
 ]
 
 INITIAL_SUPPLIERS = [
-    {
-        "filters": {"name": "Distribuidora Bratz"},
-        "defaults": {
-            "cnpj": "12.345.678/0001-99",
-            "contact_person": "Maria Bratz",
-            "phone": "48999990000",
-            "email": "contato@bratz.com",
-            "address": "Rua das Flores, 123, Centro, Cidade/UF"
-        }
-    },
-    {
-        "filters": {"name": "Schenatto Horses Co."},
-        "defaults": {
-            "cnpj": "98.765.432/0001-11",
-            "contact_person": "João Schenatto",
-            "phone": "48988887777",
-            "email": "contato@schenatto.com",
-            "address": "Av. Cavalos, 456, Bairro Rural, Cidade/UF"
-        }
-    }
+    {"filters": {"name": "Distribuidora Bratz"}, "defaults": {"cnpj": "12.345.678/0001-99", "contact_person": "Maria Bratz", "phone": "48999990000", "email": "contato@bratz.com", "address": "Rua das Flores, 123"}},
+    {"filters": {"name": "Schenatto Horses Co."}, "defaults": {"cnpj": "98.765.432/0001-11", "contact_person": "João Schenatto", "phone": "48988887777", "email": "contato@schenatto.com", "address": "Av. Cavalos, 456"}}
 ]
 
+INITIAL_PRODUCTS = [
+    {"filters": {"item": "Shampoo", "brand": "Bratz"}, "defaults": {"purchase_value": 5.50, "sale_value": 12.99, "category": "Higiene"}, "stock_quantity": 100},
+    {"filters": {"item": "Condicionador", "brand": "Bratz"}, "defaults": {"purchase_value": 6.00, "sale_value": 13.99, "category": "Higiene"}, "stock_quantity": 80},
+    {"filters": {"item": "Chaveiro", "brand": "Schenatto Horses Co."}, "defaults": {"purchase_value": 3.00, "sale_value": 41.99, "category": "Acessórios"}, "stock_quantity": 12},
+    {"filters": {"item": "Coca-Cola 2L", "brand": "Coca-Cola"}, "defaults": {"purchase_value": 6.50, "sale_value": 9.99, "category": "Bebidas"}, "stock_quantity": 150, "supplier_name": "Distribuidora Bratz"},
+    {"filters": {"item": "Boné Trucker", "brand": "Schenatto Horses Co."}, "defaults": {"purchase_value": 25.00, "sale_value": 89.90, "category": "Acessórios"}, "stock_quantity": 20, "supplier_name": "Schenatto Horses Co."}
+]
+
+INITIAL_CLIENTS = [
+    {"filters": {"cpf": "12345678900"}, "defaults": {"name": "Daniel Prâmio", "phone": "49999998888", "discounts": {"Acessórios": 10.0}}},
+    {"filters": {"cpf": "22345678900"}, "defaults": {"name": "Cecilio Balbinott", "phone": "47999998888", "discounts": {"Higiene": 15.0, "geral": 5.0}}}
+]
 
 # --- Funções Auxiliares ---
 
 @contextmanager
 def session_scope():
-    """Fornece um escopo transacional para uma série de operações."""
+    """Fornece um escopo transacional seguro para as operações de seeding."""
     session = db.session
     try:
         yield session
         session.commit()
     except Exception:
+        print("!!! Ocorreu um erro. Revertendo todas as alterações (rollback).")
         session.rollback()
         raise
     finally:
         session.close()
 
-
 def _find_or_create(session, model, defaults, **filters):
-    """
-    Função auxiliar genérica para encontrar um registro ou criá-lo se não existir.
-    Retorna a instância do objeto e um booleano indicando se foi criado.
-    """
+    """Função genérica para encontrar um registro ou criá-lo se não existir."""
     instance = session.query(model).filter_by(**filters).first()
     if instance:
         return instance, False
     else:
-        # Mescla os filtros com os valores padrão para criar a nova instância
         params = {**filters, **defaults}
-        # A senha é tratada de forma especial
         password = params.pop('password', None)
         instance = model(**params)
         if password and hasattr(instance, 'set_password'):
             instance.set_password(password)
         session.add(instance)
         return instance, True
-
 
 # --- Funções de Seeding por Módulo ---
 
@@ -158,11 +92,23 @@ def seed_users(session):
             print(f"    -> Usuário '{user.email}' criado.")
         else:
             print(f"    -> Usuário '{user.email}' já existe.")
-    return User.query.filter_by(email="caixa01@market.com").first()
+    return session.query(User).filter_by(email="caixa01@market.com").first()
 
+def seed_suppliers(session):
+    """Popula os fornecedores iniciais e retorna um dicionário para referência."""
+    print("--- Populando fornecedores...")
+    suppliers = {}
+    for supplier_data in INITIAL_SUPPLIERS:
+        supplier, created = _find_or_create(session, Supplier, supplier_data['defaults'], **supplier_data['filters'])
+        suppliers[supplier.name] = supplier
+        if created:
+            print(f"    -> Fornecedor '{supplier.name}' criado.")
+        else:
+            print(f"    -> Fornecedor '{supplier.name}' já existe.")
+    return suppliers
 
-def seed_products_and_stock(session):
-    """Popula os produtos iniciais e os associa ao estoque 'Geral'."""
+def seed_products_and_stock(session, suppliers: dict):
+    """Popula os produtos, vincula fornecedores e associa ao estoque 'Geral'."""
     print("--- Populando produtos e estoque...")
     geral_stock, created = _find_or_create(session, Stock, {"description": "Estoque principal da loja"}, name="Geral")
     if created:
@@ -170,18 +116,23 @@ def seed_products_and_stock(session):
     else:
         print("    -> Estoque 'Geral' já existe.")
     
-    # É necessário dar um flush para que geral_stock.id seja populado antes de usá-lo
-    session.flush()
+    session.flush() # Garante que geral_stock.id esteja disponível
 
-    products = []
+    products_map = {}
     for product_data in INITIAL_PRODUCTS:
+        # Vincula o fornecedor ao produto se especificado
+        supplier_name = product_data.get("supplier_name")
+        if supplier_name and supplier_name in suppliers:
+            product_data["defaults"]["supplier_id"] = suppliers[supplier_name].id
+
         product, created = _find_or_create(session, Product, product_data['defaults'], **product_data['filters'])
-        products.append(product)
+        products_map[product.item] = product # Salva no mapa para referência
+        
         if created:
             print(f"    -> Produto '{product.item}' criado.")
-            # Associa o produto recém-criado ao estoque 'Geral'
             session.flush() # Garante que product.id esteja disponível
-            print(f"       + Adicionando {product_data['stock_quantity']} unidades ao estoque 'Geral'.")
+            
+            print(f"       + Adicionando {product_data['stock_quantity']} unidades ao estoque '{geral_stock.name}'.")
             insert_stmt = db.insert(stock_item).values(
                 stock_id=geral_stock.id,
                 product_id=product.id,
@@ -191,8 +142,7 @@ def seed_products_and_stock(session):
         else:
             print(f"    -> Produto '{product.item}' já existe.")
     
-    return products[0] # Retorna o shampoo para a criação da venda
-
+    return products_map
 
 def seed_clients(session):
     """Popula os clientes iniciais."""
@@ -204,25 +154,16 @@ def seed_clients(session):
         else:
             print(f"    -> Cliente '{client.name}' já existe.")
 
-def seed_suppliers(session):
-    """Popula os fornecedores iniciais."""
-    print("--- Populando fornecedores...")
-    for supplier_data in INITIAL_SUPPLIERS:
-        supplier, created = _find_or_create(session, Supplier, supplier_data['defaults'], **supplier_data['filters'])
-        if created:
-            print(f"    -> Fornecedor '{supplier.name}' criado.")
-        else:
-            print(f"    -> Fornecedor '{supplier.name}' já existe.")
-
-def seed_sales(session, cashier_user, product_to_sell):
+def seed_sales(session, cashier_user, products_map: dict):
     """Popula uma venda de exemplo, se nenhuma existir."""
     print("--- Populando vendas de exemplo...")
     if session.query(Sell).first():
         print("    -> Vendas já existem no banco. Pulando.")
         return
 
-    if not cashier_user or not product_to_sell:
-        print("    -> Usuário caixa ou produto de exemplo não encontrado. Pulando.")
+    shampoo = products_map.get("Shampoo")
+    if not cashier_user or not shampoo:
+        print("    -> Usuário caixa ou produto 'Shampoo' não encontrado. Pulando venda.")
         return
         
     print("    -> Criando uma venda de exemplo...")
@@ -232,33 +173,31 @@ def seed_sales(session, cashier_user, product_to_sell):
         id=str(uuid.uuid4()),
         id_caixa=cashier_user.profile.get("register_number"),
         operator=cashier_user.profile.get("operator_name"),
-        sell_time=datetime.utcnow(),
-        total_value=product_to_sell.sale_value,
+        total_value=shampoo.sale_value,
         payment_method="dinheiro",
         received_value=15.00,
-        change=15.00 - product_to_sell.sale_value
+        change=15.00 - shampoo.sale_value
     )
     session.add(new_sell)
 
     item_vendido = ItemSold(
         sell_id=new_sell.id,
-        product_id=product_to_sell.id,
-        product_name=f"{product_to_sell.item} {product_to_sell.brand}",
+        product_id=shampoo.id,
+        product_name=f"{shampoo.item} {shampoo.brand}",
         quantity=1,
-        unit_value=product_to_sell.sale_value,
-        total_value=product_to_sell.sale_value
+        unit_value=shampoo.sale_value,
+        total_value=shampoo.sale_value
     )
     session.add(item_vendido)
 
-    print(f"       - Debitando 1 unidade de '{product_to_sell.item}' do estoque 'Geral'.")
+    print(f"       - Debitando 1 unidade de '{shampoo.item}' do estoque 'Geral'.")
     update_stock_stmt = db.update(stock_item).where(
         stock_item.c.stock_id == geral_stock.id,
-        stock_item.c.product_id == product_to_sell.id
+        stock_item.c.product_id == shampoo.id
     ).values(quantity=stock_item.c.quantity - 1)
     session.execute(update_stock_stmt)
 
-
-def seed_database():
+def main_seeder():
     """Função principal que orquestra todo o processo de seeding."""
     app = create_app()
     with app.app_context():
@@ -266,15 +205,13 @@ def seed_database():
         try:
             with session_scope() as session:
                 cashier = seed_users(session)
-                seed_suppliers(session)
-                shampoo = seed_products_and_stock(session)
+                suppliers = seed_suppliers(session)
+                products = seed_products_and_stock(session, suppliers)
                 seed_clients(session)
-                seed_sales(session, cashier_user=cashier, product_to_sell=shampoo)
+                seed_sales(session, cashier_user=cashier, products_map=products)
             print("\n--- SEEDING CONCLUÍDO COM SUCESSO! ---")
         except Exception as e:
             print(f"\n--- OCORREU UM ERRO DURANTE O SEEDING: {e} ---")
-            print("--- NENHUMA ALTERAÇÃO FOI SALVA NO BANCO DE DADOS. ---")
-
 
 if __name__ == "__main__":
-    seed_database()
+    main_seeder()
